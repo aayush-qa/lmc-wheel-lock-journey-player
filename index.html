@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0e1620" />
+  <title>LMC · Wheel-lock journey player</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0e1620;
+      --panel: #162232;
+      --panel-2: #1c2b3f;
+      --line: #2a3d55;
+      --text: #e8eef6;
+      --muted: #93a4b8;
+      --accent: #3d8bfd;
+      --accent-2: #1f6feb;
+      --good: #3dd68c;
+      --warn: #f0b429;
+      --danger: #f07178;
+      --phone: #0a1018;
+      --shadow: 0 24px 60px rgba(0,0,0,.45);
+      --radius: 18px;
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: "DM Sans", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(900px 480px at 10% -10%, #1a3558 0%, transparent 55%),
+        radial-gradient(700px 420px at 90% 0%, #123047 0%, transparent 50%),
+        var(--bg);
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 100%;
+      min-height: 100dvh;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: calc(12px + var(--safe-t)) 16px 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(10, 16, 24, .72);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .brand { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .brand strong { font-size: 1rem; letter-spacing: .01em; }
+    .brand span { color: var(--muted); font-size: .8rem; line-height: 1.35; }
+    .meta {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: .7rem;
+      color: var(--muted);
+      display: flex; flex-wrap: wrap; gap: 6px 12px;
+    }
+    .meta b { color: var(--text); font-weight: 500; }
+    main {
+      display: grid;
+      grid-template-columns: minmax(200px, 260px) minmax(0, 1fr) minmax(180px, 240px);
+      grid-template-areas: "rail stage phases";
+      gap: 14px;
+      padding: 14px;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    .rail { grid-area: rail; }
+    .stage { grid-area: stage; }
+    .phases { grid-area: phases; }
+
+    .rail, .stage, .phases {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      min-height: 0;
+    }
+    .rail, .phases {
+      overflow: auto;
+      padding: 12px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .rail h2, .phases h2 {
+      margin: 4px 8px 10px;
+      font-size: .72rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .step-btn {
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+      display: grid;
+      gap: 2px;
+      margin-bottom: 4px;
+      font: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .step-btn:hover { background: rgba(255,255,255,.04); }
+    .step-btn.active {
+      background: rgba(61,139,253,.14);
+      border-color: rgba(61,139,253,.45);
+    }
+    .step-btn .n {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: .7rem;
+      color: var(--muted);
+    }
+    .step-btn.active .n { color: #9ec9ff; }
+    .step-btn .t { font-size: .9rem; font-weight: 600; }
+    .step-btn .s { font-size: .75rem; color: var(--muted); }
+
+    .stage {
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      padding: 12px;
+      gap: 8px;
+      overflow: hidden;
+    }
+    .status-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.25);
+      font-size: .78rem;
+      max-width: 100%;
+    }
+    #stepLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(61,139,253,.15);
+    }
+    .dot.checkin { background: var(--accent); }
+    .dot.session { background: #5ad0e6; }
+    .dot.overstay { background: var(--warn); box-shadow: 0 0 0 4px rgba(240,180,41,.15); }
+    .dot.wheellock { background: var(--danger); box-shadow: 0 0 0 4px rgba(240,113,120,.15); }
+    .dot.release { background: var(--good); box-shadow: 0 0 0 4px rgba(61,214,140,.15); }
+
+    .phase-strip {
+      display: none;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .phase-strip::-webkit-scrollbar { display: none; }
+    .phase-chip {
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      background: #22344b;
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font: inherit;
+      font-size: .78rem;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .phase-chip.active {
+      background: rgba(61,139,253,.18);
+      border-color: rgba(61,139,253,.55);
+    }
+
+    .phone-wrap {
+      display: grid;
+      place-items: center;
+      min-height: 0;
+      overflow: hidden;
+      padding: 2px;
+    }
+    .phone {
+      height: 100%;
+      width: auto;
+      max-width: min(100%, 340px);
+      max-height: 100%;
+      aspect-ratio: 390 / 916;
+      background: var(--phone);
+      border-radius: 24px;
+      border: 2px solid #31475f;
+      overflow: hidden;
+      position: relative;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 18px 40px rgba(0,0,0,.4);
+    }
+    .phone img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+      display: block;
+      user-select: none;
+      -webkit-user-drag: none;
+      touch-action: pan-y;
+    }
+    .deck {
+      display: grid;
+      gap: 8px;
+      padding-top: 4px;
+      border-top: 1px solid var(--line);
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      align-items: center;
+    }
+    .controls button, .phase-btn {
+      font: inherit;
+      cursor: pointer;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: #22344b;
+      color: var(--text);
+      padding: 10px 14px;
+      font-weight: 600;
+      font-size: .88rem;
+      white-space: nowrap;
+      min-height: 44px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .controls button:hover, .phase-btn:hover { border-color: #4a6585; }
+    .controls button:disabled { opacity: .4; cursor: not-allowed; }
+    .controls .primary {
+      background: linear-gradient(180deg, var(--accent), var(--accent-2));
+      border-color: transparent;
+      min-width: 110px;
+    }
+    .controls .ghost { background: transparent; }
+    .speed {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: .8rem;
+    }
+    .speed select {
+      background: #121c28;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font: inherit;
+      min-height: 40px;
+    }
+    .progress {
+      height: 4px;
+      background: #101820;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress > i {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #3d8bfd, #3dd68c);
+      transition: width .25s ease;
+    }
+    .phase-btn {
+      width: 100%;
+      text-align: left;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .phase-btn.active {
+      outline: 1px solid rgba(61,139,253,.55);
+      background: rgba(61,139,253,.12);
+    }
+    .phase-btn small {
+      color: var(--muted);
+      font-weight: 500;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: .7rem;
+    }
+    .hint {
+      text-align: center;
+      color: var(--muted);
+      font-size: .75rem;
+      margin: 0;
+    }
+    kbd {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: .7rem;
+      border: 1px solid var(--line);
+      border-bottom-width: 2px;
+      border-radius: 6px;
+      padding: 1px 5px;
+      background: #121c28;
+    }
+    .mobile-only { display: none; }
+    details.steps-drawer {
+      display: none;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(0,0,0,.18);
+      overflow: hidden;
+    }
+    details.steps-drawer > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 12px 14px;
+      font-weight: 600;
+      font-size: .9rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    details.steps-drawer > summary::-webkit-details-marker { display: none; }
+    details.steps-drawer > summary::after { content: "▾"; color: var(--muted); }
+    details.steps-drawer[open] > summary::after { content: "▴"; }
+    details.steps-drawer .drawer-body {
+      max-height: 40vh;
+      overflow: auto;
+      padding: 0 8px 8px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Immersive / fullscreen — unobstructed screen view */
+    body.is-fs {
+      overflow: hidden;
+    }
+    body.is-fs header,
+    body.is-fs .rail,
+    body.is-fs .phases,
+    body.is-fs .phase-strip,
+    body.is-fs .steps-drawer,
+    body.is-fs .hint,
+    body.is-fs .status-bar .pill:first-child {
+      display: none !important;
+    }
+    body.is-fs main {
+      grid-template-columns: 1fr;
+      grid-template-areas: "stage";
+      padding: 0;
+      gap: 0;
+      height: 100dvh;
+      overflow: hidden;
+    }
+    body.is-fs .stage {
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      background: #070b10;
+      min-height: 100dvh;
+      height: 100dvh;
+      padding: 0;
+      gap: 0;
+      grid-template-rows: minmax(0, 1fr) auto;
+    }
+    body.is-fs .status-bar {
+      position: absolute;
+      top: calc(8px + var(--safe-t));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      pointer-events: none;
+    }
+    body.is-fs .status-bar .pill {
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(8px);
+      pointer-events: auto;
+    }
+    body.is-fs .phone-wrap {
+      padding: 0;
+      height: 100%;
+    }
+    body.is-fs .phone {
+      width: min(100vw, calc((100dvh - 72px) * 390 / 916));
+      max-width: 100vw;
+      max-height: calc(100dvh - 72px);
+      height: calc(100dvh - 72px);
+      border-radius: 0;
+      border: 0;
+      box-shadow: none;
+      aspect-ratio: auto;
+    }
+    body.is-fs .phone img {
+      object-fit: contain;
+      background: #070b10;
+    }
+    body.is-fs .deck {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 40;
+      border: 0;
+      margin: 0;
+      padding: 10px 12px calc(10px + var(--safe-b));
+      background: linear-gradient(180deg, transparent, rgba(7,11,16,.92) 35%);
+    }
+    body.is-fs .controls .ghost-mobile-hide { display: none; }
+    body.is-fs .speed { display: none; }
+    body.is-fs .fs-exit {
+      display: inline-flex !important;
+    }
+    .fs-exit { display: none; }
+    .fs-enter { min-width: auto; }
+
+    /* Tablet */
+    @media (max-width: 980px) {
+      body { overflow: auto; }
+      main {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "phases"
+          "stage"
+          "rail";
+        height: auto;
+        overflow: visible;
+        padding: 10px;
+        gap: 10px;
+        padding-bottom: calc(12px + var(--safe-b));
+      }
+      .rail { display: none; }
+      .phases { display: none; }
+      .phase-strip, .mobile-only, details.steps-drawer { display: flex; }
+      details.steps-drawer { display: block; }
+      .stage {
+        min-height: calc(100dvh - 140px);
+        grid-template-rows: auto auto minmax(280px, 1fr) auto;
+      }
+      .phone {
+        max-width: min(100%, 360px);
+        max-height: min(62dvh, 640px);
+        height: auto;
+        width: min(100%, 360px);
+      }
+      .controls button {
+        flex: 1 1 calc(33.33% - 8px);
+        justify-content: center;
+      }
+      .controls .primary { flex: 1 1 100%; order: -1; }
+      .speed { width: 100%; justify-content: center; }
+      .hint-desktop { display: none; }
+    }
+
+    /* Phone */
+    @media (max-width: 640px) {
+      header { padding: calc(10px + var(--safe-t)) 12px 10px; }
+      .brand strong { font-size: .95rem; }
+      .brand span { font-size: .75rem; }
+      .meta { font-size: .65rem; gap: 4px 10px; }
+      .stage {
+        border-radius: 14px;
+        padding: 10px;
+        min-height: calc(100dvh - 120px);
+        gap: 8px;
+      }
+      .pill { font-size: .72rem; padding: 5px 10px; }
+      .phone {
+        width: min(100%, 320px);
+        max-height: min(54dvh, 560px);
+        border-radius: 18px;
+      }
+      .deck {
+        position: sticky;
+        bottom: 0;
+        background: linear-gradient(180deg, transparent, var(--panel-2) 18%);
+        padding: 8px 0 calc(6px + var(--safe-b));
+        margin: 0 -2px;
+        z-index: 5;
+      }
+      .controls { gap: 6px; }
+      .controls button {
+        padding: 12px 10px;
+        font-size: .85rem;
+        border-radius: 14px;
+      }
+      .controls .ghost-mobile-hide { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <strong>Wheel-lock journey player</strong>
+      <span>Parker Web reference for Lahv+ app integration</span>
+    </div>
+    <div class="meta">
+      <span>Plate <b>JA 88 PA 7712</b></span>
+      <span>Case <b>WL-20261121-0003</b></span>
+      <span>Site <b>Labim · 21 Nov 2026</b></span>
+    </div>
+  </header>
+
+  <main>
+    <aside class="rail" aria-label="Steps">
+      <h2>All steps</h2>
+      <div id="stepList"></div>
+    </aside>
+
+    <section class="stage" aria-label="Player">
+      <div class="status-bar">
+        <div class="pill"><span class="dot" id="phaseDot"></span><span id="phaseLabel">Check-in</span></div>
+        <div class="pill" id="stepLabel">Step 1 / 19</div>
+      </div>
+
+      <div class="phase-strip mobile-only" id="phaseStrip" aria-label="Jump to phase"></div>
+
+      <div class="phone-wrap">
+        <div class="phone">
+          <img id="frame" alt="Journey step screenshot" />
+        </div>
+      </div>
+
+      <div class="deck">
+        <div class="controls">
+          <button type="button" class="ghost ghost-mobile-hide" id="btnFirst" title="First">First</button>
+          <button type="button" id="btnPrev" title="Previous">← Back</button>
+          <button type="button" class="primary" id="btnPlay" title="Play / Pause">▶ Play</button>
+          <button type="button" id="btnNext" title="Next">Next →</button>
+          <button type="button" class="ghost ghost-mobile-hide" id="btnLast" title="Last">Last</button>
+          <button type="button" class="ghost fs-enter" id="btnFs" title="Fullscreen (F)">⛶ Full screen</button>
+          <button type="button" class="ghost fs-exit" id="btnFsExit" title="Exit fullscreen (Esc)">✕ Exit full screen</button>
+          <label class="speed">Speed
+            <select id="speed" aria-label="Playback speed">
+              <option value="2500">Slow</option>
+              <option value="1600" selected>Normal</option>
+              <option value="900">Fast</option>
+            </select>
+          </label>
+        </div>
+        <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+        <p class="hint hint-desktop">Use <kbd>←</kbd> <kbd>→</kbd> to step · <kbd>Space</kbd> play/pause · <kbd>F</kbd> full screen</p>
+
+        <details class="steps-drawer">
+          <summary><span>Browse all steps</span><span id="drawerCount" style="color:var(--muted);font-weight:500;font-size:.8rem">19</span></summary>
+          <div class="drawer-body" id="stepListMobile"></div>
+        </details>
+      </div>
+    </section>
+
+    <aside class="phases" aria-label="Phases">
+      <h2>Jump to phase</h2>
+      <div id="phaseList"></div>
+      <p class="hint" style="text-align:left;padding:8px;">Primary action on each screen is mirrored by <b>Next</b> — treat this as the rider path the app should match.</p>
+    </aside>
+  </main>
+
+  <script>
+    const STEPS = [
+      { file: "step-01.png", title: "QR landing", status: "Check in — Labim · 3-min limit", phase: "checkin", action: "Check in" },
+      { file: "step-02.png", title: "Plate entry", status: "Enter vehicle plate", phase: "checkin", action: "Continue" },
+      { file: "step-03.png", title: "Plate filled", status: "JA 88 PA 7712 · spot 42", phase: "checkin", action: "Continue" },
+      { file: "step-04.png", title: "Phone auth", status: "Connect Persona — mobile", phase: "checkin", action: "Continue" },
+      { file: "step-05.png", title: "OTP", status: "Enter 6-digit code", phase: "checkin", action: "Verify" },
+      { file: "step-06.png", title: "OAuth consent", status: "Allow Lahv+ Parking access", phase: "checkin", action: "Continue" },
+      { file: "step-07.png", title: "Confirm details", status: "Start 3-min timer", phase: "checkin", action: "Start timer" },
+      { file: "step-08.png", title: "Active session", status: "You’re checked in", phase: "session", action: "Wait / Extend later" },
+      { file: "step-09.png", title: "Extend available", status: "Mid-session · extend copy", phase: "session", action: "Wait for window" },
+      { file: "step-10.png", title: "Extend CTA", status: "Extend · +2 min", phase: "session", action: "Extend · +2 min" },
+      { file: "step-11.png", title: "Extend confirm", status: "Yes, extend?", phase: "session", action: "Yes, extend" },
+      { file: "step-12.png", title: "After extension", status: "Extended · extension used", phase: "session", action: "Wait for end" },
+      { file: "step-13.png", title: "Session ended", status: "Grace — leave now", phase: "overstay", action: "I’m leaving" },
+      { file: "step-14.png", title: "Overstay", status: "Over the limit · impound risk", phase: "overstay", action: "Wait / leave" },
+      { file: "step-15.png", title: "Wheel lock notice", status: "Lock fitted · Case WL-…0003", phase: "wheellock", action: "Pay Rs 500 now" },
+      { file: "step-16.png", title: "Pay fine QR", status: "Waiting for payment…", phase: "wheellock", action: "I have paid" },
+      { file: "step-17.png", title: "Officer on the way", status: "Paid · lock removal pending", phase: "wheellock", action: "Wait for officer" },
+      { file: "step-18.png", title: "Released", status: "Lock removed · bike free", phase: "release", action: "Download receipt" },
+      { file: "step-19.png", title: "Receipt / Done", status: "Final confirmation", phase: "release", action: "Done" },
+    ];
+
+    const PHASES = [
+      { id: "checkin", label: "1 · Check-in", short: "Check-in", start: 0 },
+      { id: "session", label: "2 · Session & extend", short: "Session", start: 7 },
+      { id: "overstay", label: "3 · End / overstay", short: "Overstay", start: 12 },
+      { id: "wheellock", label: "4 · Wheel lock & pay", short: "Wheel lock", start: 14 },
+      { id: "release", label: "5 · Released", short: "Released", start: 17 },
+    ];
+
+    let i = 0;
+    let playing = false;
+    let timer = null;
+    let touchX = null;
+
+    const frame = document.getElementById("frame");
+    const stepList = document.getElementById("stepList");
+    const stepListMobile = document.getElementById("stepListMobile");
+    const phaseList = document.getElementById("phaseList");
+    const phaseStrip = document.getElementById("phaseStrip");
+    const stepLabel = document.getElementById("stepLabel");
+    const phaseLabel = document.getElementById("phaseLabel");
+    const phaseDot = document.getElementById("phaseDot");
+    const bar = document.getElementById("bar");
+    const btnPlay = document.getElementById("btnPlay");
+    const btnPrev = document.getElementById("btnPrev");
+    const btnNext = document.getElementById("btnNext");
+    const btnFirst = document.getElementById("btnFirst");
+    const btnLast = document.getElementById("btnLast");
+    const btnFs = document.getElementById("btnFs");
+    const btnFsExit = document.getElementById("btnFsExit");
+    const speed = document.getElementById("speed");
+    const drawerCount = document.getElementById("drawerCount");
+
+    function setFs(on) {
+      document.body.classList.toggle("is-fs", on);
+      btnFs.setAttribute("aria-pressed", on ? "true" : "false");
+      if (on) {
+        const el = document.documentElement;
+        const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+        if (req) req.call(el).catch(() => {});
+      } else if (document.fullscreenElement || document.webkitFullscreenElement) {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+        if (exit) exit.call(document).catch(() => {});
+      }
+    }
+    function toggleFs() { setFs(!document.body.classList.contains("is-fs")); }
+    btnFs.addEventListener("click", () => setFs(true));
+    btnFsExit.addEventListener("click", () => setFs(false));
+    document.addEventListener("fullscreenchange", () => {
+      if (!document.fullscreenElement && document.body.classList.contains("is-fs")) {
+        // Keep immersive CSS mode even if browser FS exited; only sync if user left via Esc from browser FS while we want exit
+      }
+    });
+
+    function phaseOf(idx) {
+      return PHASES.find((p, n) => {
+        const next = PHASES[n + 1];
+        return idx >= p.start && (!next || idx < next.start);
+      }) || PHASES[0];
+    }
+
+    function stepButtonsHtml() {
+      return STEPS.map((s, idx) => `
+        <button type="button" class="step-btn${idx === i ? " active" : ""}" data-i="${idx}">
+          <span class="n">Step ${String(idx + 1).padStart(2, "0")} · ${s.action}</span>
+          <span class="t">${s.title}</span>
+          <span class="s">${s.status}</span>
+        </button>
+      `).join("");
+    }
+
+    function renderLists() {
+      const html = stepButtonsHtml();
+      stepList.innerHTML = html;
+      stepListMobile.innerHTML = html;
+      drawerCount.textContent = `${i + 1} / ${STEPS.length}`;
+
+      phaseList.innerHTML = PHASES.map((p) => {
+        const active = phaseOf(i).id === p.id;
+        const count = STEPS.filter((s) => s.phase === p.id).length;
+        return `<button type="button" class="phase-btn${active ? " active" : ""}" data-start="${p.start}">
+          <span>${p.label}</span><small>${count} screens</small>
+        </button>`;
+      }).join("");
+
+      phaseStrip.innerHTML = PHASES.map((p) => {
+        const active = phaseOf(i).id === p.id;
+        return `<button type="button" class="phase-chip${active ? " active" : ""}" data-start="${p.start}">${p.short}</button>`;
+      }).join("");
+    }
+
+    function show(idx, { fromPlay } = {}) {
+      i = Math.max(0, Math.min(STEPS.length - 1, idx));
+      const s = STEPS[i];
+      const ph = phaseOf(i);
+      frame.src = s.file;
+      frame.alt = `${s.title} — ${s.status}`;
+      stepLabel.textContent = `Step ${i + 1} / ${STEPS.length} · ${s.action}`;
+      phaseLabel.textContent = ph.short || ph.label.replace(/^\d+ · /, "");
+      phaseDot.className = `dot ${s.phase}`;
+      bar.style.width = `${((i + 1) / STEPS.length) * 100}%`;
+      btnPrev.disabled = i === 0;
+      btnNext.disabled = i === STEPS.length - 1;
+      btnPlay.textContent = playing ? "⏸ Pause" : "▶ Play";
+      renderLists();
+      const active = stepList.querySelector(".step-btn.active");
+      if (active && !fromPlay) active.scrollIntoView({ block: "nearest" });
+      const activeChip = phaseStrip.querySelector(".phase-chip.active");
+      if (activeChip) activeChip.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+    }
+
+    function stop() {
+      playing = false;
+      if (timer) clearInterval(timer);
+      timer = null;
+      btnPlay.textContent = "▶ Play";
+    }
+
+    function play() {
+      if (i >= STEPS.length - 1) show(0);
+      playing = true;
+      btnPlay.textContent = "⏸ Pause";
+      if (timer) clearInterval(timer);
+      timer = setInterval(() => {
+        if (i >= STEPS.length - 1) { stop(); return; }
+        show(i + 1, { fromPlay: true });
+      }, Number(speed.value));
+    }
+
+    btnPlay.addEventListener("click", () => (playing ? stop() : play()));
+    btnNext.addEventListener("click", () => { stop(); show(i + 1); });
+    btnPrev.addEventListener("click", () => { stop(); show(i - 1); });
+    btnFirst.addEventListener("click", () => { stop(); show(0); });
+    btnLast.addEventListener("click", () => { stop(); show(STEPS.length - 1); });
+    speed.addEventListener("change", () => { if (playing) play(); });
+
+    function onStepClick(e) {
+      const btn = e.target.closest("[data-i]");
+      if (!btn) return;
+      stop();
+      show(Number(btn.dataset.i));
+    }
+    function onPhaseClick(e) {
+      const btn = e.target.closest("[data-start]");
+      if (!btn) return;
+      stop();
+      show(Number(btn.dataset.start));
+    }
+    stepList.addEventListener("click", onStepClick);
+    stepListMobile.addEventListener("click", onStepClick);
+    phaseList.addEventListener("click", onPhaseClick);
+    phaseStrip.addEventListener("click", onPhaseClick);
+
+    // Swipe on phone preview
+    const phone = document.querySelector(".phone");
+    phone.addEventListener("touchstart", (e) => { touchX = e.changedTouches[0].clientX; }, { passive: true });
+    phone.addEventListener("touchend", (e) => {
+      if (touchX == null) return;
+      const dx = e.changedTouches[0].clientX - touchX;
+      touchX = null;
+      if (Math.abs(dx) < 40) return;
+      stop();
+      show(i + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.target.matches("input,select,textarea,summary")) return;
+      if (e.key === "ArrowRight") { e.preventDefault(); stop(); show(i + 1); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); stop(); show(i - 1); }
+      if (e.key === " ") { e.preventDefault(); playing ? stop() : play(); }
+      if (e.key === "f" || e.key === "F") { e.preventDefault(); toggleFs(); }
+      if (e.key === "Escape" && document.body.classList.contains("is-fs")) { e.preventDefault(); setFs(false); }
+    });
+
+    show(0);
+  </script>
+</body>
+</html>
